@@ -81,12 +81,12 @@ func (w *Worker) Init(dsn string, id int) (err error) {
 func (w *Worker) Connect(dsn string) (err error) {
 	w.db, err = sql.Open("presto", dsn)
 	if err != nil {
-		log.Fatalf("worker %d failed to open dsn %s", w.id, dsn)
+		log.Printf("worker %d failed to open dsn %s", w.id, dsn)
 		return
 	}
 	err = w.db.Ping()
 	if err != nil {
-		log.Fatalf("worker %d failed to ping db %s", w.id, dsn)
+		log.Printf("worker %d failed to ping db %s", w.id, dsn)
 		return
 	}
 	return
