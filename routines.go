@@ -1,8 +1,17 @@
 package main
 
-import "sync"
+import (
+	"context"
+	"fmt"
+	"log"
+	"math/rand"
+	"os"
+	"runtime"
+	"sync"
+	"time"
+)
 
-type ThreadsManager struct {
+type threadsPool struct {
 	mu   *sync.Mutex
 	cnt  int
 	size int
@@ -11,13 +20,19 @@ type ThreadsManager struct {
 	// cnt <= size
 }
 
-func (tm *ThreadsManager) Alloc() int {
+func ThreadsPool(size int) *threadsPool {
+	return &threadsPool{
+		mu:   &sync.Mutex{},
+		cnt:  0,
+		size: size,
+	}
+}
+
+func (tm *threadsPool) Alloc() int {
 	ret := -1
 	tm.mu.Lock()
-	if tm.size == 0 {
-		return ret
-	}
 	if tm.cnt < tm.size {
+		// cnt < size才能申请到
 		tm.cnt++
 		ret = tm.cnt
 	}
@@ -25,12 +40,9 @@ func (tm *ThreadsManager) Alloc() int {
 	return ret
 }
 
-func (tm *ThreadsManager) Free(key int) int {
+func (tm *threadsPool) Free(key int) int {
 	ret := -1
 	tm.mu.Lock()
-	if key > tm.size {
-		return ret
-	}
 	if tm.cnt > 0 {
 		tm.cnt--
 		ret = 0
@@ -39,12 +51,43 @@ func (tm *ThreadsManager) Free(key int) int {
 	return ret
 }
 
-func (tm *ThreadsManager) Resize(size int) bool {
-	tm.mu.Lock()
-	if size < tm.cnt {
-		return false
-	}
-	tm.cnt = size
-	tm.mu.Unlock()
+func (tm *threadsPool) Resize(size int) bool {
+	// 直接resize
+	tm.size = size
 	return true
+}
+
+func (tm *threadsPool) Run(ctx context.Context) {
+	file, _ := os.Create("workload.csv")
+	// file, _ := os.OpenFile("workload.csv", os.O_CREATE|os.O_APPEND, 0777)
+	resizeTimer := time.NewTimer(ResizeInterval)
+	for {
+		time.Sleep(MonitorInterval)
+		select {
+		case <-ctx.Done():
+			return
+		case <-resizeTimer.C:
+			tm.mu.Lock()
+			newSize := rand.NormFloat64()*10 + 5
+			if false && newSize >= 0 && newSize <= 10 {
+				// DEBUG don't resize
+				log.Printf("%v", newSize)
+				log.Printf("Running queries size change from %v to %v", tm.size, int(newSize))
+				tm.size = int(newSize)
+			}
+			resizeTimer.Reset(ResizeInterval)
+			log.Printf("Current runing query: %d/%d(go routines: %d)\n", tm.cnt, tm.size, runtime.NumGoroutine())
+			outputString := fmt.Sprintf("%d, %d, %d\n", time.Now().Unix(), tm.cnt, tm.size)
+			n, err := file.WriteString(outputString)
+			fmt.Printf("ThreadsPool write to file: %d, %v\n", n, err)
+			tm.mu.Unlock()
+		default:
+			tm.mu.Lock()
+			log.Printf("Current runing query: %d/%d(go routines: %d)\n", tm.cnt, tm.size, runtime.NumGoroutine())
+			outputString := fmt.Sprintf("%d, %d, %d\n", time.Now().Unix(), tm.cnt, tm.size)
+			n, err := file.WriteString(outputString)
+			fmt.Printf("ThreadsPool write to file: %d, %v\n", n, err)
+			tm.mu.Unlock()
+		}
+	}
 }
