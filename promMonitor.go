@@ -34,9 +34,9 @@ func (p *PromMonitor) Query(promQL string, podPrefix string) (result map[string]
 		return
 	}
 	result = extractResult(&queryResult)
-	for k, v := range result {
-		fmt.Println(k, v)
-	}
+	// for k, v := range result {
+	// 	log.Println(k, v)
+	// }
 	return
 }
 

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"log"
 	"math/rand"
 	"time"
@@ -16,7 +17,7 @@ type Worker struct {
 	queries *[]string
 }
 
-func (w *Worker) Run(ctx context.Context) {
+func (w *Worker) Run(ctx context.Context, resultCh chan string) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -26,9 +27,12 @@ func (w *Worker) Run(ctx context.Context) {
 			k := tm.Alloc()
 			if k != -1 {
 				log.Printf("worker %d executing", w.id)
-				_, err := w.QueryToId(rand.Int() % len(*w.queries))
+				queryId := rand.Int() % len(*w.queries)
+				_, executeTime, err := w.QueryToId(queryId)
 				if err != nil {
 					log.Printf("Query error: %s", err)
+				} else {
+					resultCh <- fmt.Sprintf("worker-%v, %v, %v\n", w.id, queryId, executeTime.Milliseconds())
 				}
 				tm.Free(k)
 			}
@@ -98,25 +102,26 @@ func (w *Worker) Close() (err error) {
 }
 
 // 查询
-func (w *Worker) QueryToId(queryId int) ([]map[string]interface{}, error) {
-	var tables []map[string]interface{}
+func (w *Worker) QueryToId(queryId int) (tables []map[string]interface{}, executeTime time.Duration, err error) {
 	if queryId < 0 || queryId >= len(*w.queries) {
-		return tables, errors.UnsupportedError("query id exceed")
+		err = errors.UnsupportedError("query id exceed")
+		return
 	}
 	startTime := time.Now()
 	sqltxt := (*w.queries)[queryId]
 	log.Printf("worker:%d, query:%v\n", w.id, sqltxt)
 	rows, err := w.db.Query(sqltxt)
-	log.Printf("worker:%d, query:%d, time:%v\n", w.id, queryId, time.Since(startTime).Milliseconds())
+	executeTime = time.Since(startTime)
+	log.Printf("worker:%d, query:%d, time:%v\n", w.id, queryId, executeTime.Milliseconds())
 	if err != nil {
-		return tables, err
+		return
 	}
 	defer rows.Close()
 	tables, err = Sqlrows2Maps(rows)
 	if err != nil {
-		return tables, err
+		return
 	}
-	return tables, nil
+	return
 }
 
 // 查询
