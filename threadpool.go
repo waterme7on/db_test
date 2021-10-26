@@ -1,5 +1,9 @@
 package main
 
+/*
+	threadsPool - 实现对查询的并发数量的控制
+*/
+
 import (
 	"context"
 	"fmt"
