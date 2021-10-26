@@ -1,5 +1,10 @@
 package main
 
+/*
+	创建n个查询work，对数据库进行查询
+	查询的数量由ThreadsPool进行管理
+*/
+
 import (
 	"context"
 	"log"

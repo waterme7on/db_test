@@ -1,12 +1,13 @@
-module github.com/waterme7on/dynamic_presto
+module github.com/waterme7on/db_test
 
 go 1.17
 
 require (
 	github.com/prestodb/presto-go-client v0.0.0-20201204133205-8958eb37e584
+	github.com/prometheus/client_golang v1.11.0
 	github.com/prometheus/common v0.32.1
 	github.com/waterme7on/openGauss-operator v0.0.0-20211022072426-aaaf48159977
-	golang.org/x/crypto v0.0.0-20210220033148-5ea612d1eb83
+	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
 	k8s.io/client-go v0.22.2
 )
 
@@ -23,7 +24,6 @@ require (
 	github.com/json-iterator/go v1.1.11 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.1 // indirect
-	github.com/prometheus/client_golang v1.11.0 // indirect
 	golang.org/x/net v0.0.0-20210525063256-abc453219eb5 // indirect
 	golang.org/x/oauth2 v0.0.0-20210514164344-f6687ab2804c // indirect
 	golang.org/x/sys v0.0.0-20210616094352-59db8d763f22 // indirect

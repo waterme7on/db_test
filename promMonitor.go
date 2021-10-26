@@ -1,5 +1,9 @@
 package main
 
+/*
+	promMonotor 通过prometheus提供的go客户端连接prometheus，进行查询并最终处理得到的结果
+*/
+
 import (
 	"context"
 	"fmt"
