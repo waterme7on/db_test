@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"runtime"
@@ -19,48 +19,48 @@ func main() {
 	ctx, cancel := context.WithCancel(context.TODO())
 	signal.Notify(c, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGUSR1, syscall.SIGUSR2)
 	wg := sync.WaitGroup{}
-	fmt.Println("Before Routine cnt:", runtime.NumGoroutine())
+	log.Println("Before Routine cnt:", runtime.NumGoroutine())
 	go func(ctx context.Context) {
 		wg.Add(1)
 		defer wg.Done()
-		fmt.Println("Sub routine Start...")
+		log.Println("Sub routine Start...")
 		sum := 0
 		for {
 			select {
 			case <-ctx.Done():
-				fmt.Println("Sub routine quit...")
+				log.Println("Sub routine quit...")
 				return
 			default:
 				sum++
 				go func() {
-					fmt.Println("sum:", sum)
+					log.Println("sum:", sum)
 				}()
 			}
 			time.Sleep(time.Second)
-			fmt.Println("Routine cnt:", runtime.NumGoroutine())
+			log.Println("Routine cnt:", runtime.NumGoroutine())
 		}
 	}(ctx)
-	fmt.Println("After Routine cnt:", runtime.NumGoroutine())
+	log.Println("After Routine cnt:", runtime.NumGoroutine())
 	for s := range c {
 		switch s {
 		case syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT:
-			fmt.Println("Main routine Exit...", s)
+			log.Println("Main routine Exit...", s)
 			cancel()
 			quit = true
 		case syscall.SIGUSR1:
-			fmt.Println("usr1 signal", s)
+			log.Println("usr1 signal", s)
 		case syscall.SIGUSR2:
-			fmt.Println("usr2 signal", s)
+			log.Println("usr2 signal", s)
 		default:
-			fmt.Println("other signal", s)
+			log.Println("other signal", s)
 		}
 		if quit {
 			break
 		}
 	}
-	fmt.Println("Start Exit...")
-	fmt.Println("Execute Clean...")
+	log.Println("Start Exit...")
+	log.Println("Execute Clean...")
 	wg.Wait()
-	fmt.Println("After Routine cnt:", runtime.NumGoroutine())
-	fmt.Println("Main routine End Exit...")
+	log.Println("After Routine cnt:", runtime.NumGoroutine())
+	log.Println("Main routine End Exit...")
 }

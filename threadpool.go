@@ -57,8 +57,24 @@ func (tm *threadsPool) Resize(size int) bool {
 	return true
 }
 
+func (tm *threadsPool) CollectResult(ctx context.Context, c chan string) {
+	file, _ := os.Create(fmt.Sprintf("result-%v.csv", time.Now().Unix()))
+	defer file.Close()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case input := <-c:
+			file.WriteString(input)
+		default:
+			continue
+		}
+	}
+}
+
 func (tm *threadsPool) Run(ctx context.Context) {
-	file, _ := os.Create("workload.csv")
+	file, _ := os.Create(fmt.Sprintf("workload-%v.csv", time.Now().Unix()))
+	defer file.Close()
 	// file, _ := os.OpenFile("workload.csv", os.O_CREATE|os.O_APPEND, 0777)
 	resizeTimer := time.NewTimer(ResizeInterval)
 	for {
@@ -77,16 +93,16 @@ func (tm *threadsPool) Run(ctx context.Context) {
 			}
 			resizeTimer.Reset(ResizeInterval)
 			log.Printf("Current runing query: %d/%d(go routines: %d)\n", tm.cnt, tm.size, runtime.NumGoroutine())
-			outputString := fmt.Sprintf("%d, %d, %d\n", time.Now().Unix(), tm.cnt, tm.size)
+			outputString := fmt.Sprintf("%v, %d, %d\n", time.Now().Unix(), tm.cnt, tm.size)
 			n, err := file.WriteString(outputString)
-			fmt.Printf("ThreadsPool write to file: %d, %v\n", n, err)
+			log.Printf("ThreadsPool write to file: %d, %v\n", n, err)
 			tm.mu.Unlock()
 		default:
 			tm.mu.Lock()
 			log.Printf("Current runing query: %d/%d(go routines: %d)\n", tm.cnt, tm.size, runtime.NumGoroutine())
-			outputString := fmt.Sprintf("%d, %d, %d\n", time.Now().Unix(), tm.cnt, tm.size)
+			outputString := fmt.Sprintf("%v, %d, %d\n", time.Now().Unix(), tm.cnt, tm.size)
 			n, err := file.WriteString(outputString)
-			fmt.Printf("ThreadsPool write to file: %d, %v\n", n, err)
+			log.Printf("ThreadsPool write to file: %d, %v\n", n, err)
 			tm.mu.Unlock()
 		}
 	}
