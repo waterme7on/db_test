@@ -1,29 +1,136 @@
 package main
 
 import (
+	"context"
 	"database/sql"
+	"fmt"
 	"log"
+	"math/rand"
+	"time"
+
+	"golang.org/x/crypto/openpgp/errors"
 )
 
-const dsn = "http://root@10.77.50.201:31314"
+type Worker struct {
+	db      *sql.DB
+	id      int
+	queries *[]string
+}
 
-func connect() (db *sql.DB, err error) {
-	db, err = sql.Open("presto", dsn)
-	if err != nil {
-		return db, err
+func (w *Worker) Run(ctx context.Context, resultCh chan string) {
+	for {
+		select {
+		case <-ctx.Done():
+			log.Printf("worker %d quit", w.id)
+			return
+		default:
+			k := tm.Alloc()
+			if k != -1 {
+				log.Printf("worker %d executing", w.id)
+				queryId := rand.Int() % len(*w.queries)
+				_, executeTime, err := w.QueryToId(queryId)
+				if err != nil {
+					log.Printf("Query error: %s", err)
+				} else {
+					resultCh <- fmt.Sprintf("worker-%v, %v, %v\n", w.id, queryId, executeTime.Milliseconds())
+				}
+				tm.Free(k)
+			}
+		}
+		time.Sleep(QueryInterval)
 	}
-	err = db.Ping()
-	if err != nil {
-		return db, err
+}
+
+func (w *Worker) Init(dsn string, id int) (err error) {
+	w.queries = &[]string{
+		`
+		select distinct orders.personid
+		from match (:person)-[:knows]->(:person) as graph
+		join hbase.default.feedback on graph.node0id = feedback.personid
+		join mongodb.unibench.orders on orders.personid = feedback.personid
+		where orderdate = '2018-07-07' and orderline[1].productId = '2675'
+		`,
+		`
+		with graph as (select node1id from match (:person)-[:knows]->(:person) as graph where node1id is not null)
+		select feedback.personid, feedback.feedback
+		from graph
+		join hbase.default.feedback on feedback.personid = node1id
+		join mongodb.unibench.orders on orders.personid = node1id
+		where feedback like '%1.0%' and orderdate = '2018-07-07' and orderline[1].productId = '1380'
+		`,
+		`
+		select feedback.personid, feedback.feedback
+		from (select node1id from match (:person)-[:knows]-(:person) as graph where node0id = '4145')
+		join hbase.default.feedback on feedback.personid = node1id
+		join mongodb.unibench.orders on orders.personid = node1id
+		where feedback like '%5.0%' and orderline[1].productId = '6406'
+		`,
+		`
+		with dfn as (select * from(select node1id from match (:person)-[:knows]->(:person)<-[:knows]-(:person) as graph where node0id='4145' and node2id='24189255845124') where node1id is not null)
+		select o.personid, orderline[1].productId
+		from mongodb.unibench.orders o, dfn
+		where o.personid=dfn.node1id
+		`,
 	}
-	return db, nil
+	w.id = id
+	err = w.Connect(dsn)
+	log.Printf("worker %d init", w.id)
+	return
+}
+
+func (w *Worker) Connect(dsn string) (err error) {
+	w.db, err = sql.Open("presto", dsn)
+	if err != nil {
+		log.Fatalf("worker %d failed to open dsn %s", w.id, dsn)
+		return
+	}
+	err = w.db.Ping()
+	if err != nil {
+		log.Fatalf("worker %d failed to ping db %s", w.id, dsn)
+		return
+	}
+	return
+}
+
+func (w *Worker) Close() (err error) {
+	err = w.db.Close()
+	if err != nil {
+		return
+	}
+	w.db = nil
+	return
 }
 
 // 查询
-func Query(db *sql.DB, sqltxt string) ([]map[string]interface{}, error) {
+func (w *Worker) QueryToId(queryId int) (tables []map[string]interface{}, executeTime time.Duration, err error) {
+	if queryId < 0 || queryId >= len(*w.queries) {
+		err = errors.UnsupportedError("query id exceed")
+		return
+	}
+	startTime := time.Now()
+	sqltxt := (*w.queries)[queryId]
+	log.Printf("worker:%d, query:%v\n", w.id, sqltxt)
+	rows, err := w.db.Query(sqltxt)
+	executeTime = time.Since(startTime)
+	log.Printf("worker:%d, query:%d, time:%v\n", w.id, queryId, executeTime.Milliseconds())
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+	tables, err = Sqlrows2Maps(rows)
+	if err != nil {
+		return
+	}
+	return
+}
+
+// 查询
+func (w *Worker) QueryString(sqltxt string) ([]map[string]interface{}, error) {
 	var tables []map[string]interface{}
-	rows, err := db.Query(sqltxt)
-	log.Printf("%v %v\n", rows, err)
+	startTime := time.Now()
+	log.Printf("worker:%d, query:%v\n", w.id, sqltxt)
+	rows, err := w.db.Query(sqltxt)
+	log.Printf("worker:%d, query:%v, time:%v\n", w.id, sqltxt, time.Since(startTime).Milliseconds())
 	if err != nil {
 		return tables, err
 	}

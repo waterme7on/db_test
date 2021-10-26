@@ -1,59 +1,72 @@
 package main
 
 import (
-	"fmt"
+	"context"
 	"log"
+	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 
 	_ "github.com/prestodb/presto-go-client/presto"
 )
 
-var tm = &ThreadsManager{
-	mu:   &sync.Mutex{},
-	cnt:  0,
-	size: 10,
+var tm = ThreadsPool(3)
+var scaler = Scaler{
+	podPrefix: "gourdstore-slave",
 }
 
 func main() {
-	queries := []string{
-		`
-		with r as (select node1id from match (:person)-[:hascreated]->(:post) as graph 
-		where node0id = '4145') 
-		SELECT COUNT(*) 
-		from hive.unibench.person c, mongodb.unibench.orders o, hbase.default.feedback f, r 
-		WHERE c.id='4145' and o.personid = '4145' and f.personid='4145'
-		`,
-		`
-		select distinct orders.personid
-		from match (:person)-[:knows]->(:person) as graph
-		join hbase.default.feedback on graph.node0id = feedback.personid
-		join mongodb.unibench.orders on orders.personid = feedback.personid
-		where orderdate = '2018-07-07' and orderline[1].productId = '2675'
-		`,
-		`
-		with graph as (select node1id from match (:person)-[:knows]->(:person) as graph where node1id is not null)
-		select feedback.personid, feedback.feedback
-		from graph
-		join hbase.default.feedback on feedback.personid = node1id
-		join mongodb.unibench.orders on orders.personid = node1id
-		where feedback like '%1.0%' and orderdate = '2018-07-07' and orderline[1].productId = '1380'
-		`,
-	}
+	//创建监听退出chan
+	c := make(chan os.Signal)
+	quit := false
+	//监听指定信号 ctrl+c kill
+	ctx, cancel := context.WithTimeout(context.TODO(), TestInterval)
+	signal.Notify(c, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGUSR1, syscall.SIGUSR2)
 	var wg sync.WaitGroup
-	wg.Add(1)
+	workerSize := 10
+	resultCh := make(chan string, workerSize)
+	wg.Add(3 + workerSize)
+	for i := 0; i < workerSize; i++ {
+		go func(i int) {
+			w := Worker{}
+			err := w.Init(DSN, i)
+			defer w.Close()
+			defer wg.Done()
+			if err != nil {
+				return
+			}
+			w.Run(ctx, resultCh)
+		}(i)
+	}
 	go func() {
-		db, err := connect()
-		defer db.Close()
-		if err != nil {
-			return
-		}
-		tables, err := Query(db, queries[1])
-		if err != nil {
-			log.Fatalf("Query error: %s", err)
-			return
-		}
-		fmt.Println(tables)
-		wg.Done()
+		tm.CollectResult(ctx, resultCh)
+		defer wg.Done()
 	}()
+	go func() {
+		scaler.Run(ctx)
+		defer wg.Done()
+	}()
+	go func() {
+		tm.Run(ctx)
+		defer wg.Done()
+	}()
+
+	for s := range c {
+		switch s {
+		case syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT:
+			log.Println("Main routine Exit...", s)
+			cancel()
+			quit = true
+		default:
+			log.Println("other signal", s)
+		}
+		if quit {
+			break
+		}
+	}
+	log.Println("Main routine Start exit...")
+	log.Println("Execute clean and wait for subroutines to quit...")
 	wg.Wait()
+	log.Println("Main routine end exit...")
 }
