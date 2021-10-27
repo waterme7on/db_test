@@ -29,10 +29,9 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.TODO(), TestInterval)
 	signal.Notify(c, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGUSR1, syscall.SIGUSR2)
 	var wg sync.WaitGroup
-	workerSize := 10
-	resultCh := make(chan string, workerSize)
-	wg.Add(3 + workerSize)
-	for i := 0; i < workerSize; i++ {
+	resultCh := make(chan string, WorkerSize)
+	wg.Add(3 + WorkerSize)
+	for i := 0; i < WorkerSize; i++ {
 		go func(i int) {
 			w := Worker{}
 			err := w.Init(DSN, i)

@@ -81,6 +81,7 @@ func (tm *threadsPool) Run(ctx context.Context) {
 	defer file.Close()
 	// file, _ := os.OpenFile("workload.csv", os.O_CREATE|os.O_APPEND, 0777)
 	resizeTimer := time.NewTimer(ResizeInterval)
+	rand.Seed(time.Now().Unix())
 	for {
 		time.Sleep(MonitorInterval)
 		select {
@@ -89,7 +90,7 @@ func (tm *threadsPool) Run(ctx context.Context) {
 		case <-resizeTimer.C:
 			tm.mu.Lock()
 			newSize := rand.NormFloat64()*10 + 5
-			if false && newSize >= 0 && newSize <= 10 {
+			if false && newSize >= 0 && newSize <= MaxQuerySize {
 				// DEBUG don't resize
 				log.Printf("%v", newSize)
 				log.Printf("Running queries size change from %v to %v", tm.size, int(newSize))
