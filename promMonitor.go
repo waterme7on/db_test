@@ -44,13 +44,21 @@ func (p *PromMonitor) Query(promQL string, podPrefix string) (result map[string]
 	return
 }
 
+// const PrometheusServerAddr = "http://10.77.50.201:31111"
+
+// const (
+// 	PodMemoryUsagePercentage = "100 * (sum(container_memory_rss{pod=~\"%s.*\"}) by(pod)/1024/1024/1024) / (sum(container_spec_memory_limit_bytes) by(pod)/1024/1024/1024-8)"
+// 	PodCpuUsagePercentage    = "sum(rate(container_cpu_usage_seconds_total{pod=~\"%s.*\"}[1m])) by (pod) / (((sum(container_spec_cpu_quota) by (pod))/ (sum(container_spec_cpu_period) by (pod))) - 2) * 100"
+// )
+
 // func main() {
 // 	// skeleton code
 // 	// 连接prometheus Client
 // 	address := PrometheusServerAddr
 // 	p := PromMonitor{}
 // 	p.Connect(address)
-// 	p.Query(prometheusUtil.PodCpuUsage, "gourdstore-slave")
+// 	res, _ := p.Query(PodMemoryUsagePercentage, "gourdstore-slave")
+// 	fmt.Println(res)
 // }
 
 func extractResult(v *model.Value) (m map[string]string) {

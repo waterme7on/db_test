@@ -7,6 +7,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"log"
 	"os"
 	"os/signal"
@@ -14,14 +15,37 @@ import (
 	"syscall"
 
 	_ "github.com/prestodb/presto-go-client/presto"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
-var tm = ThreadsPool(3)
+var (
+	masterURL  string
+	kubeconfig string
+)
+
+func init() {
+	flag.StringVar(&kubeconfig, "kubeconfig", "", "Path to a kubeconfig. Only required if out-of-cluster.")
+	flag.StringVar(&masterURL, "master", "", "The address of the Kubernetes API server. Overrides any value in kubeconfig. Only required if out-of-cluster.")
+}
+
+var tm = ThreadsPool(10)
 var scaler = Scaler{
 	podPrefix: "gourdstore-slave",
 }
 
 func main() {
+
+	cfg, err := clientcmd.BuildConfigFromFlags(masterURL, kubeconfig)
+	if err != nil {
+		log.Fatalf("Error building kubeconfig: %s", err.Error())
+	}
+	kubeClient, err := kubernetes.NewForConfig(cfg)
+	if err != nil {
+		log.Fatalf("Error building kubernetes clientset: %s", err.Error())
+	}
+	scaler.kubeClient = kubeClient
+
 	//创建监听退出chan
 	c := make(chan os.Signal)
 	quit := false
