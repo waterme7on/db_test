@@ -92,7 +92,7 @@ func (tm *threadsPool) Run(ctx context.Context) {
 				continue
 			}
 			tm.mu.Lock()
-			newSize := rand.NormFloat64()*10 + 5
+			newSize := int(rand.NormFloat64()*10 + 5)
 			if newSize >= 0 && newSize <= MaxQuerySize {
 				// DEBUG don't resize
 				log.Printf("%v", newSize)
