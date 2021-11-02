@@ -7,21 +7,59 @@ package main
 
 import (
 	"context"
+	"flag"
 	"log"
+	"math/rand"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
 
 	_ "github.com/prestodb/presto-go-client/presto"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/klog/v2"
 )
 
-var tm = ThreadsPool(3)
-var scaler = Scaler{
-	podPrefix: "gourdstore-slave",
+var (
+	MasterUrl       string
+	Kubeconfig      string
+	ScalerOn        bool
+	DynamicWorkload bool
+	MaxQuerySize    int
+	WorkerSize      int
+)
+
+func init() {
+	flag.StringVar(&Kubeconfig, "kubeconfig", "", "Path to a Kubeconfig. Only required if out-of-cluster.")
+	flag.StringVar(&MasterUrl, "master", "", "The address of the Kubernetes API server. Overrides any value in Kubeconfig. Only required if out-of-cluster.")
+	flag.BoolVar(&ScalerOn, "scale", false, "Trun on or off the scaler")
+	flag.BoolVar(&DynamicWorkload, "dynamic", false, "Turn on or off dynamic workload")
+	flag.IntVar(&MaxQuerySize, "qsize", 20, "Max query size")
+	flag.IntVar(&WorkerSize, "wsize", 20, "Worker size")
 }
 
 func main() {
+	klog.InitFlags(nil)
+	flag.Parse()
+
+	var tm = ThreadsPool(rand.Int() % MaxQuerySize)
+	var scaler = Scaler{
+		podPrefix:      "gourdstore-slave",
+		deploymentName: "gourdstore-slave",
+		namespace:      "citybrain",
+	}
+
+	cfg, err := clientcmd.BuildConfigFromFlags(MasterUrl, Kubeconfig)
+	if err != nil {
+		log.Fatalf("Error building Kubeconfig: %s", err.Error())
+	}
+	kubeClient, err := kubernetes.NewForConfig(cfg)
+	if err != nil {
+		log.Fatalf("Error building kubernetes clientset: %s", err.Error())
+	}
+	scaler.kubeClient = kubeClient
+
 	//创建监听退出chan
 	c := make(chan os.Signal)
 	quit := false
@@ -29,10 +67,9 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.TODO(), TestInterval)
 	signal.Notify(c, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGUSR1, syscall.SIGUSR2)
 	var wg sync.WaitGroup
-	workerSize := 10
-	resultCh := make(chan string, workerSize)
-	wg.Add(3 + workerSize)
-	for i := 0; i < workerSize; i++ {
+	resultCh := make(chan string, WorkerSize)
+	wg.Add(3 + WorkerSize)
+	for i := 0; i < WorkerSize; i++ {
 		go func(i int) {
 			w := Worker{}
 			err := w.Init(DSN, i)
