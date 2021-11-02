@@ -39,6 +39,9 @@ func (s *Scaler) QueryMetric(p *PromMonitor, Metric string) map[string]string {
 }
 
 func (s *Scaler) Scale(result map[string]string, Metric string) bool {
+	if !ScalerOn {
+		return false
+	}
 	_, avg := sum_and_avg(result)
 	if avg >= 70 {
 		deploy, err := s.kubeClient.AppsV1().Deployments(s.namespace).Get(context.TODO(), s.deploymentName, v1.GetOptions{})

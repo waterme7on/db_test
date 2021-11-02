@@ -88,6 +88,9 @@ func (tm *threadsPool) Run(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-resizeTimer.C:
+			if !DynamicWorkload {
+				continue
+			}
 			tm.mu.Lock()
 			newSize := rand.NormFloat64()*10 + 5
 			if newSize >= 0 && newSize <= MaxQuerySize {
