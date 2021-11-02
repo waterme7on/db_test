@@ -15,6 +15,7 @@ type Worker struct {
 	db      *sql.DB
 	id      int
 	queries *[]string
+	tm      *threadsPool
 }
 
 func (w *Worker) Run(ctx context.Context, resultCh chan string) {
@@ -24,7 +25,7 @@ func (w *Worker) Run(ctx context.Context, resultCh chan string) {
 			log.Printf("worker %d quit", w.id)
 			return
 		default:
-			k := tm.Alloc()
+			k := w.tm.Alloc()
 			if k != -1 {
 				log.Printf("worker %d executing", w.id)
 				queryId := rand.Int() % len(*w.queries)
@@ -35,7 +36,7 @@ func (w *Worker) Run(ctx context.Context, resultCh chan string) {
 				} else {
 					resultCh <- fmt.Sprintf("worker-%v, %v, %v\n", w.id, queryId, executeTime.Milliseconds())
 				}
-				tm.Free(k)
+				w.tm.Free(k)
 			}
 		}
 		time.Sleep(QueryInterval)
