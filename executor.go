@@ -57,7 +57,7 @@ func (s *Scaler) Scale(result map[string]string, Metric string) bool {
 
 func (s *Scaler) Run(ctx context.Context) {
 	p := &PromMonitor{}
-	file, _ := os.Create(fmt.Sprintf("monitor-%v.csv", time.Now()))
+	file, _ := os.Create(fmt.Sprintf("monitor-%v-%v-%v.csv", MaxQuerySize, DynamicWorkload, ScalerOn))
 	defer file.Close()
 	p.Connect(PrometheusServerAddr)
 	for {

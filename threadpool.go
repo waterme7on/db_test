@@ -62,7 +62,7 @@ func (tm *threadsPool) Resize(size int) bool {
 }
 
 func (tm *threadsPool) CollectResult(ctx context.Context, c chan string) {
-	file, _ := os.Create(fmt.Sprintf("result-%v.csv", time.Now()))
+	file, _ := os.Create(fmt.Sprintf("result-%v-%v-%v.csv", MaxQuerySize, DynamicWorkload, ScalerOn))
 	defer file.Close()
 	for {
 		select {
@@ -77,7 +77,8 @@ func (tm *threadsPool) CollectResult(ctx context.Context, c chan string) {
 }
 
 func (tm *threadsPool) Run(ctx context.Context) {
-	file, _ := os.Create(fmt.Sprintf("workload-%v.csv", time.Now()))
+	file, _ := os.Create(fmt.Sprintf("workload-%v-%v-%v.csv", MaxQuerySize, DynamicWorkload, ScalerOn))
+
 	defer file.Close()
 	// file, _ := os.OpenFile("workload.csv", os.O_CREATE|os.O_APPEND, 0777)
 	resizeTimer := time.NewTimer(ResizeInterval)
