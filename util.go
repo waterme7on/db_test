@@ -32,9 +32,9 @@ func (w *Worker) Run(ctx context.Context, resultCh chan string) {
 				_, executeTime, err := w.QueryToId(queryId)
 				if err != nil {
 					log.Printf("Query error: %s", err)
-					resultCh <- fmt.Sprintf("worker-%v, %v, %v, %v\n", w.id, queryId, executeTime.Milliseconds(), err.Error())
+					resultCh <- fmt.Sprintf("%v, worker-%v, %v, %v, %v\n", time.Now().Format("2006-01-02 15:04:05"), w.id, queryId, executeTime.Milliseconds(), err.Error())
 				} else {
-					resultCh <- fmt.Sprintf("worker-%v, %v, %v\n", w.id, queryId, executeTime.Milliseconds())
+					resultCh <- fmt.Sprintf("%v, worker-%v, %v, %v\n", time.Now().Format("2006-01-02 15:04:05"), w.id, queryId, executeTime.Milliseconds())
 				}
 				w.tm.Free(k)
 			}

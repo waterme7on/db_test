@@ -102,14 +102,14 @@ func (tm *threadsPool) Run(ctx context.Context) {
 			}
 			resizeTimer.Reset(ResizeInterval)
 			log.Printf("Current runing query: %d/%d(go routines: %d)\n", tm.cnt, tm.size, runtime.NumGoroutine())
-			outputString := fmt.Sprintf("%v, %d, %d\n", time.Now().Unix(), tm.cnt, tm.size)
+			outputString := fmt.Sprintf("%v, %d, %d\n", time.Now().Format("2006-01-02 15:04:05"), tm.cnt, tm.size)
 			n, err := file.WriteString(outputString)
 			log.Printf("ThreadsPool write to file: %d, %v\n", n, err)
 			tm.mu.Unlock()
 		default:
 			tm.mu.Lock()
 			log.Printf("Current runing query: %d/%d(go routines: %d)\n", tm.cnt, tm.size, runtime.NumGoroutine())
-			outputString := fmt.Sprintf("%v, %d, %d\n", time.Now().Unix(), tm.cnt, tm.size)
+			outputString := fmt.Sprintf("%v, %d, %d\n", time.Now().Format("2006-01-02 15:04:05"), tm.cnt, tm.size)
 			n, err := file.WriteString(outputString)
 			log.Printf("ThreadsPool write to file: %d, %v\n", n, err)
 			tm.mu.Unlock()

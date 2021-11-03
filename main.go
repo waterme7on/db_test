@@ -42,8 +42,11 @@ func init() {
 func main() {
 	klog.InitFlags(nil)
 	flag.Parse()
-
-	var tm = ThreadsPool(rand.Int() % MaxQuerySize)
+	initWorkerSize := MaxQuerySize
+	if DynamicWorkload {
+		initWorkerSize = rand.Int() % MaxQuerySize
+	}
+	var tm = ThreadsPool(initWorkerSize)
 	var scaler = Scaler{
 		podPrefix:      "gourdstore-slave",
 		deploymentName: "gourdstore-slave",
@@ -71,7 +74,9 @@ func main() {
 	wg.Add(3 + WorkerSize)
 	for i := 0; i < WorkerSize; i++ {
 		go func(i int) {
-			w := Worker{}
+			w := Worker{
+				tm: tm,
+			}
 			err := w.Init(DSN, i)
 			defer w.Close()
 			defer wg.Done()
@@ -94,19 +99,24 @@ func main() {
 		defer wg.Done()
 	}()
 
-	for s := range c {
-		switch s {
-		case syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT:
-			log.Println("Main routine Exit...", s)
-			cancel()
+	for {
+		select {
+		case s := <-c:
+			switch s {
+			case syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT:
+				log.Println("Main routine Exit...", s)
+				quit = true
+			default:
+				log.Println("other signal", s)
+			}
+		case <-ctx.Done():
 			quit = true
-		default:
-			log.Println("other signal", s)
 		}
 		if quit {
 			break
 		}
 	}
+	cancel()
 	log.Println("Main routine Start exit...")
 	log.Println("Execute clean and wait for subroutines to quit...")
 	wg.Wait()

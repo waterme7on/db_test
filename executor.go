@@ -68,13 +68,13 @@ func (s *Scaler) Run(ctx context.Context) {
 			result, _ := p.Query(PodCpuUsagePercentage, s.podPrefix)
 			sum, avg := sum_and_avg(result)
 			log.Printf("Scaler: %v, %v, %v, %v", s.podPrefix, len(result), sum, avg)
-			file.WriteString(fmt.Sprintf("%v, %v-cpu-per, %v, %v, %v\n", time.Now().Unix(), s.podPrefix, len(result), sum, avg))
+			file.WriteString(fmt.Sprintf("%v, %v-cpu-per, %v, %v, %v\n", time.Now().Format("2006-01-02 15:04:05"), s.podPrefix, len(result), sum, avg))
 			flag := s.Scale(result, PodCpuUsagePercentage)
 
 			result, _ = p.Query(PodMemoryUsagePercentage, s.podPrefix)
 			sum, avg = sum_and_avg(result)
 			log.Printf("Scaler: %v, %v, %v, %v", s.podPrefix, len(result), sum, avg)
-			file.WriteString(fmt.Sprintf("%v, %v-mem-per, %v, %v, %v\n", time.Now().Unix(), s.podPrefix, len(result), sum, avg))
+			file.WriteString(fmt.Sprintf("%v, %v-mem-per, %v, %v, %v\n", time.Now().Format("2006-01-02 15:04:05"), s.podPrefix, len(result), sum, avg))
 			if flag != true {
 				s.Scale(result, PodMemoryUsagePercentage)
 			}
@@ -82,11 +82,11 @@ func (s *Scaler) Run(ctx context.Context) {
 			result, _ = p.Query(PodMemoryUsage, s.podPrefix)
 			sum, avg = sum_and_avg(result)
 			log.Printf("Scaler: %v, %v, %v, %v", s.podPrefix, len(result), sum, avg)
-			file.WriteString(fmt.Sprintf("%v, %v-mem, %v, %v, %v\n", time.Now().Unix(), s.podPrefix, len(result), sum, avg))
+			file.WriteString(fmt.Sprintf("%v, %v-mem, %v, %v, %v\n", time.Now().Format("2006-01-02 15:04:05"), s.podPrefix, len(result), sum, avg))
 			result, _ = p.Query(PodCpuUsage, s.podPrefix)
 			sum, avg = sum_and_avg(result)
 			log.Printf("Scaler: %v, %v, %v, %v", s.podPrefix, len(result), sum, avg)
-			file.WriteString(fmt.Sprintf("%v, %v-cpu, %v, %v, %v\n", time.Now().Unix(), s.podPrefix, len(result), sum, avg))
+			file.WriteString(fmt.Sprintf("%v, %v-cpu, %v, %v, %v\n", time.Now().Format("2006-01-02 15:04:05"), s.podPrefix, len(result), sum, avg))
 		}
 		time.Sleep(MonitorInterval)
 	}
