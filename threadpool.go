@@ -5,12 +5,14 @@ package main
 */
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"log"
 	"math/rand"
 	"os"
 	"runtime"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -80,7 +82,16 @@ func (tm *threadsPool) Run(ctx context.Context) {
 	file, _ := os.Create(fmt.Sprintf("workload-%v-%v-%v.csv", MaxQuerySize, DynamicWorkload, ScalerOn))
 
 	defer file.Close()
-	// file, _ := os.OpenFile("workload.csv", os.O_CREATE|os.O_APPEND, 0777)
+
+	var wlfile *os.File
+	var scanner *bufio.Scanner
+	if WorkloadFile != "" {
+		wlfile, _ = os.Open(WorkloadFile)
+		log.Print(WorkloadFile, wlfile)
+		scanner = bufio.NewScanner(wlfile)
+	} else {
+		wlfile = nil
+	}
 	resizeTimer := time.NewTimer(ResizeInterval)
 	rand.Seed(time.Now().Unix())
 	for {
@@ -93,25 +104,36 @@ func (tm *threadsPool) Run(ctx context.Context) {
 				continue
 			}
 			tm.mu.Lock()
-			newSize := int(rand.NormFloat64()*10 + 5)
+			newSize := 0
+			if wlfile == nil {
+				newSize = int(rand.NormFloat64()*10 + 5)
+			} else {
+				ok := scanner.Scan()
+				if !ok {
+					wlfile.Seek(0, 0)
+					scanner = bufio.NewScanner(wlfile)
+					scanner.Scan()
+				}
+				newSize, _ = strconv.Atoi(scanner.Text())
+				log.Printf("newsize %v|%v", scanner.Text(), newSize)
+			}
 			if newSize >= 0 && newSize <= MaxQuerySize {
 				// DEBUG don't resize
-				log.Printf("%v", newSize)
 				log.Printf("Running queries size change from %v to %v", tm.size, int(newSize))
 				tm.size = int(newSize)
 			}
 			resizeTimer.Reset(ResizeInterval)
 			log.Printf("Current runing query: %d/%d(go routines: %d)\n", tm.cnt, tm.size, runtime.NumGoroutine())
 			outputString := fmt.Sprintf("%v, %d, %d\n", time.Now().Format("2006-01-02 15:04:05"), tm.cnt, tm.size)
-			n, err := file.WriteString(outputString)
-			log.Printf("ThreadsPool write to file: %d, %v\n", n, err)
+			file.WriteString(outputString)
+			// log.Printf("ThreadsPool write to file: %d, %v\n", n, err)
 			tm.mu.Unlock()
 		default:
 			tm.mu.Lock()
 			log.Printf("Current runing query: %d/%d(go routines: %d)\n", tm.cnt, tm.size, runtime.NumGoroutine())
 			outputString := fmt.Sprintf("%v, %d, %d\n", time.Now().Format("2006-01-02 15:04:05"), tm.cnt, tm.size)
-			n, err := file.WriteString(outputString)
-			log.Printf("ThreadsPool write to file: %d, %v\n", n, err)
+			file.WriteString(outputString)
+			// log.Printf("ThreadsPool write to file: %d, %v\n", n, err)
 			tm.mu.Unlock()
 		}
 	}

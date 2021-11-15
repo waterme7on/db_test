@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -17,6 +18,7 @@ type Scaler struct {
 	kubeClient     *kubernetes.Clientset
 	deploymentName string
 	namespace      string
+	lastScaleTime  time.Time
 }
 
 func sum_and_avg(input map[string]string) (sum float64, avg float64) {
@@ -38,19 +40,32 @@ func (s *Scaler) QueryMetric(p *PromMonitor, Metric string) map[string]string {
 	return result
 }
 
-func (s *Scaler) Scale(result map[string]string, Metric string) bool {
+func (s *Scaler) Scale(results map[string]map[string]string) bool {
 	if !ScalerOn {
 		return false
 	}
-	_, avg := sum_and_avg(result)
-	if avg >= 70 {
-		deploy, err := s.kubeClient.AppsV1().Deployments(s.namespace).Get(context.TODO(), s.deploymentName, v1.GetOptions{})
-		if err != nil {
-			log.Fatalf("Scale Error: %v", err)
+	if time.Since(s.lastScaleTime) <= ScaleInterval {
+		return false
+	}
+
+	deploy, err := s.kubeClient.AppsV1().Deployments(s.namespace).Get(context.TODO(), s.deploymentName, v1.GetOptions{})
+	if err != nil {
+		log.Fatalf("Scale Error: %v", err)
+		return false
+	}
+	if *(deploy.Spec.Replicas) >= 5 {
+		return false
+	}
+
+	for k := range results {
+		result := results[k]
+		_, avg := sum_and_avg(result)
+		if strings.Contains(k, "per") && avg >= 70 {
+			*(deploy.Spec.Replicas) += 1
+			s.kubeClient.AppsV1().Deployments(s.namespace).Update(context.TODO(), deploy, v1.UpdateOptions{})
+			s.lastScaleTime = time.Now()
+			return true
 		}
-		*(deploy.Spec.Replicas) += 1
-		s.kubeClient.AppsV1().Deployments(s.namespace).Update(context.TODO(), deploy, v1.UpdateOptions{})
-		return true
 	}
 	return false
 }
@@ -65,28 +80,32 @@ func (s *Scaler) Run(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		default:
-			result, _ := p.Query(PodCpuUsagePercentage, s.podPrefix)
-			sum, avg := sum_and_avg(result)
-			log.Printf("Scaler: %v, %v, %v, %v", s.podPrefix, len(result), sum, avg)
-			file.WriteString(fmt.Sprintf("%v, %v-cpu-per, %v, %v, %v\n", time.Now().Format("2006-01-02 15:04:05"), s.podPrefix, len(result), sum, avg))
-			flag := s.Scale(result, PodCpuUsagePercentage)
+			cpuPerResult, _ := p.Query(PodCpuUsagePercentage, s.podPrefix)
+			sum, avg := sum_and_avg(cpuPerResult)
+			log.Printf("Scaler: %v, %v, %v, %v", s.podPrefix, len(cpuPerResult), sum, avg)
+			file.WriteString(fmt.Sprintf("%v, %v-cpu-per, %v, %v, %v\n", time.Now().Format("2006-01-02 15:04:05"), s.podPrefix, len(cpuPerResult), sum, avg))
 
-			result, _ = p.Query(PodMemoryUsagePercentage, s.podPrefix)
-			sum, avg = sum_and_avg(result)
-			log.Printf("Scaler: %v, %v, %v, %v", s.podPrefix, len(result), sum, avg)
-			file.WriteString(fmt.Sprintf("%v, %v-mem-per, %v, %v, %v\n", time.Now().Format("2006-01-02 15:04:05"), s.podPrefix, len(result), sum, avg))
-			if flag != true {
-				s.Scale(result, PodMemoryUsagePercentage)
+			memPerResult, _ := p.Query(PodMemoryUsagePercentage, s.podPrefix)
+			sum, avg = sum_and_avg(memPerResult)
+			log.Printf("Scaler: %v, %v, %v, %v", s.podPrefix, len(memPerResult), sum, avg)
+			file.WriteString(fmt.Sprintf("%v, %v-mem-per, %v, %v, %v\n", time.Now().Format("2006-01-02 15:04:05"), s.podPrefix, len(memPerResult), sum, avg))
+
+			if ScalerOn {
+				result_ := map[string]map[string]string{
+					"cpu_per": cpuPerResult,
+					"mem_per": memPerResult,
+				}
+				s.Scale(result_)
 			}
 
-			result, _ = p.Query(PodMemoryUsage, s.podPrefix)
-			sum, avg = sum_and_avg(result)
-			log.Printf("Scaler: %v, %v, %v, %v", s.podPrefix, len(result), sum, avg)
-			file.WriteString(fmt.Sprintf("%v, %v-mem, %v, %v, %v\n", time.Now().Format("2006-01-02 15:04:05"), s.podPrefix, len(result), sum, avg))
-			result, _ = p.Query(PodCpuUsage, s.podPrefix)
-			sum, avg = sum_and_avg(result)
-			log.Printf("Scaler: %v, %v, %v, %v", s.podPrefix, len(result), sum, avg)
-			file.WriteString(fmt.Sprintf("%v, %v-cpu, %v, %v, %v\n", time.Now().Format("2006-01-02 15:04:05"), s.podPrefix, len(result), sum, avg))
+			memUsageResult, _ := p.Query(PodMemoryUsage, s.podPrefix)
+			sum, avg = sum_and_avg(memUsageResult)
+			log.Printf("Scaler: %v, %v, %v, %v", s.podPrefix, len(memUsageResult), sum, avg)
+			file.WriteString(fmt.Sprintf("%v, %v-mem, %v, %v, %v\n", time.Now().Format("2006-01-02 15:04:05"), s.podPrefix, len(memUsageResult), sum, avg))
+			cpuUsageResult, _ := p.Query(PodCpuUsage, s.podPrefix)
+			sum, avg = sum_and_avg(cpuUsageResult)
+			log.Printf("Scaler: %v, %v, %v, %v", s.podPrefix, len(cpuUsageResult), sum, avg)
+			file.WriteString(fmt.Sprintf("%v, %v-cpu, %v, %v, %v\n", time.Now().Format("2006-01-02 15:04:05"), s.podPrefix, len(cpuUsageResult), sum, avg))
 		}
 		time.Sleep(MonitorInterval)
 	}

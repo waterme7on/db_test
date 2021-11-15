@@ -59,25 +59,25 @@ func (w *Worker) Init(dsn string, id int) (err error) {
 		join mongodb.unibench.orders on orders.personid = feedback.personid
 		where orderdate = '2018-07-07' and orderline[1].productId = '2675'
 		`,
-		`
-		with graph as (select node1id from match (:person)-[:knows]->(:person) as graph where node1id is not null)
-		select feedback.personid, feedback.feedback
-		from graph
-		join hbase.default.feedback on feedback.personid = node1id
-		join mongodb.unibench.orders on orders.personid = node1id
-		where feedback like '%1.0%' and orderdate = '2018-07-07' and orderline[1].productId = '1380'
-		`,
+		// `
+		// with graph as (select node1id from match (:person)-[:knows]->(:person) as graph where node1id is not null)
+		// select feedback.personid, feedback.feedback
+		// from graph
+		// join hbase.default.feedback on feedback.personid = node1id
+		// join mongodb.unibench.orders on orders.personid = node1id
+		// where feedback like '%1.0%' and orderdate = '2018-07-07' and orderline[1].productId = '1380'
+		// `,
 
-		`
-		with pids as (select PersonId as pid, SUM(TotalPrice) as sum
-            from mongodb.unibench.orders
-            Group by PersonId
-            order by sum desc
-            limit 2)
-		select node1id
-		from (select * from (select node0id, node1id, node2id from match (:person)-[:knows]->(:person)<-[:knows]-(:person) as graph) where node0id is not null)
-		where node0id in (select pid from pids) and node2id in (select pid from pids)
-		`,
+		// `
+		// with pids as (select PersonId as pid, SUM(TotalPrice) as sum
+		//     from mongodb.unibench.orders
+		//     Group by PersonId
+		//     order by sum desc
+		//     limit 2)
+		// select node1id
+		// from (select * from (select node0id, node1id, node2id from match (:person)-[:knows]->(:person)<-[:knows]-(:person) as graph) where node0id is not null)
+		// where node0id in (select pid from pids) and node2id in (select pid from pids)
+		// `,
 		`
 		select feedback.personid, feedback.feedback
 		from (select node1id from match (:person)-[:knows]-(:person) as graph where node0id = '4145')
@@ -91,68 +91,68 @@ func (w *Worker) Init(dsn string, id int) (err error) {
 		from mongodb.unibench.orders o, dfn
 		where o.personid=dfn.node1id
 		`,
-		`
-		WITH salesone as (SELECT feedback.asin, count(totalprice) as count
-				FROM mongodb.unibench.orders
-				join hive.unibench.person on person.id = orders.personid
-				join hbase.default.feedback on feedback.personid = orders.personid
-				join mongodb.unibench.product on product.asin = feedback.asin
-				where mongodb.unibench.product.brand = 1 and orders.orderdate like '%2019%'
-				Group by feedback.asin
-				Order by count DESC limit 10),
-		salestwo as (SELECT feedback.asin, count(totalprice) as count
-				FROM mongodb.unibench.orders
-				join hive.unibench.person on person.id = orders.personid
-				join hbase.default.feedback on feedback.personid = orders.personid
-				join mongodb.unibench.product on product.asin = feedback.asin
-				where mongodb.unibench.product.brand = 1 and orders.orderdate like '%2018%'
-				Group by feedback.asin
-				Order by count DESC limit 10)
-		SELECT distinct salesone.asin, (salesone.count-salestwo.count) as residual, feedback.feedback
-		FROM salesone
-		INNER JOIN hbase.default.feedback on salesone.asin = hbase.default.feedback.asin
-		INNER JOIN salestwo on salesone.asin=salestwo.asin
-		WHERE salesone.count>salestwo.count
-		`,
-		`
-		WITH graph as (select node1asin FROM MATCH (:post)-[:hastag]->(:tag) as graph where node1asin is not null),
-			Totalsales as (SELECT asin,count(orderline) as ol
-							FROM mongodb.unibench.orders o
-							join hbase.default.feedback f on f.personid = o.personid
-							GROUP BY asin 
-							ORDER BY ol DESC)
-		SELECT Totalsales.asin,count(Totalsales.asin) as ts
-		FROM graph
-		INNER JOIN Totalsales on Totalsales.asin = graph.node1asin
-		GROUP BY Totalsales.asin 
-		ORDER BY ts DESC
-		`,
-		`
-		WITH brandList as (select id from hive.unibench.vendor where country='China'), 
-			TopCompany as (SELECT c.gender, count(c.id), p.brand FROM mongodb.unibench.product p  
-						JOIN brandList bl on bl.id=cast(p.brand as varchar)
-						join hbase.default.feedback f on f.asin= p.asin
-						JOIN hive.unibench.person c on c.id=f.personid
-						GROUP BY c.gender, p.brand 
-						Order by count(c.id) DESC, p.brand DESC 
-						limit 3) 
-						SELECT distinct tc.*, node0content,node0creationDate 
-						FROM match (:post)-[:hastag]->(:tag) as graph
-						CROSS JOIN TopCompany tc
-						order by node0creationDate DESC
-		`,
-		`
-		with dfn as (select node0id as pid, count(node1creationDate) as pc 
-		from match (:person)-[:hascreated]->(:post) as graph  
-		where pc > '2012-10' 
-		group by pid 
-		order by pc desc 
-		limit 10)
-		SELECT o.personid as Active_person, max(o.orderdate) as Recency, count(o.orderdate) as Frequency,sum(o.totalprice) as Monetary 
-		from mongodb.unibench.orders o
-		inner join dfn on o.person = node0id
-		group by o.personid
-		`,
+		// `
+		// WITH salesone as (SELECT feedback.asin, count(totalprice) as count
+		// 		FROM mongodb.unibench.orders
+		// 		join hive.unibench.person on person.id = orders.personid
+		// 		join hbase.default.feedback on feedback.personid = orders.personid
+		// 		join mongodb.unibench.product on product.asin = feedback.asin
+		// 		where mongodb.unibench.product.brand = 1 and orders.orderdate like '%2019%'
+		// 		Group by feedback.asin
+		// 		Order by count DESC limit 10),
+		// salestwo as (SELECT feedback.asin, count(totalprice) as count
+		// 		FROM mongodb.unibench.orders
+		// 		join hive.unibench.person on person.id = orders.personid
+		// 		join hbase.default.feedback on feedback.personid = orders.personid
+		// 		join mongodb.unibench.product on product.asin = feedback.asin
+		// 		where mongodb.unibench.product.brand = 1 and orders.orderdate like '%2018%'
+		// 		Group by feedback.asin
+		// 		Order by count DESC limit 10)
+		// SELECT distinct salesone.asin, (salesone.count-salestwo.count) as residual, feedback.feedback
+		// FROM salesone
+		// INNER JOIN hbase.default.feedback on salesone.asin = hbase.default.feedback.asin
+		// INNER JOIN salestwo on salesone.asin=salestwo.asin
+		// WHERE salesone.count>salestwo.count
+		// `,
+		// `
+		// WITH graph as (select node1asin FROM MATCH (:post)-[:hastag]->(:tag) as graph where node1asin is not null),
+		// 	Totalsales as (SELECT asin,count(orderline) as ol
+		// 					FROM mongodb.unibench.orders o
+		// 					join hbase.default.feedback f on f.personid = o.personid
+		// 					GROUP BY asin 
+		// 					ORDER BY ol DESC)
+		// SELECT Totalsales.asin,count(Totalsales.asin) as ts
+		// FROM graph
+		// INNER JOIN Totalsales on Totalsales.asin = graph.node1asin
+		// GROUP BY Totalsales.asin 
+		// ORDER BY ts DESC
+		// `,
+		// `
+		// WITH brandList as (select id from hive.unibench.vendor where country='China'),
+		// 	TopCompany as (SELECT c.gender, count(c.id), p.brand FROM mongodb.unibench.product p
+		// 				JOIN brandList bl on bl.id=cast(p.brand as varchar)
+		// 				join hbase.default.feedback f on f.asin= p.asin
+		// 				JOIN hive.unibench.person c on c.id=f.personid
+		// 				GROUP BY c.gender, p.brand
+		// 				Order by count(c.id) DESC, p.brand DESC
+		// 				limit 3)
+		// 				SELECT distinct tc.*, node0content,node0creationDate
+		// 				FROM match (:post)-[:hastag]->(:tag) as graph
+		// 				CROSS JOIN TopCompany tc
+		// 				order by node0creationDate DESC
+		// `,
+		// `
+		// with dfn as (select node0id as pid, count(node1creationDate) as pc
+		// from match (:person)-[:hascreated]->(:post) as graph
+		// where pc > '2012-10'
+		// group by pid
+		// order by pc desc
+		// limit 10)
+		// SELECT o.personid as Active_person, max(o.orderdate) as Recency, count(o.orderdate) as Frequency,sum(o.totalprice) as Monetary
+		// from mongodb.unibench.orders o
+		// inner join dfn on o.person = node0id
+		// group by o.personid
+		// `,
 	}
 	w.id = id
 	err = w.Connect(dsn)

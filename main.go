@@ -14,6 +14,7 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 
 	_ "github.com/prestodb/presto-go-client/presto"
 	"k8s.io/client-go/kubernetes"
@@ -28,11 +29,13 @@ var (
 	DynamicWorkload bool
 	MaxQuerySize    int
 	WorkerSize      int
+	WorkloadFile    string
 )
 
 func init() {
 	flag.StringVar(&Kubeconfig, "kubeconfig", "", "Path to a Kubeconfig. Only required if out-of-cluster.")
 	flag.StringVar(&MasterUrl, "master", "", "The address of the Kubernetes API server. Overrides any value in Kubeconfig. Only required if out-of-cluster.")
+	flag.StringVar(&WorkloadFile, "workloadf", "", "workload file")
 	flag.BoolVar(&ScalerOn, "scale", false, "Trun on or off the scaler")
 	flag.BoolVar(&DynamicWorkload, "dynamic", false, "Turn on or off dynamic workload")
 	flag.IntVar(&MaxQuerySize, "qsize", 20, "Max query size")
@@ -43,7 +46,8 @@ func main() {
 	klog.InitFlags(nil)
 	flag.Parse()
 	initWorkerSize := MaxQuerySize
-	if DynamicWorkload {
+	rand.Seed(time.Now().Unix())
+	if DynamicWorkload && MaxQuerySize != 0 {
 		initWorkerSize = rand.Int() % MaxQuerySize
 	}
 	var tm = ThreadsPool(initWorkerSize)
@@ -51,6 +55,7 @@ func main() {
 		podPrefix:      "gourdstore-slave",
 		deploymentName: "gourdstore-slave",
 		namespace:      "citybrain",
+		lastScaleTime:  time.Now(),
 	}
 
 	cfg, err := clientcmd.BuildConfigFromFlags(MasterUrl, Kubeconfig)

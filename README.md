@@ -18,5 +18,5 @@
 
 ```
 go build -o test .
-./test -kubeconfig=$HOME/.kube/config  -scale=false -dynamic=false -qsize=3 -wsize=3
+./test -kubeconfig=$HOME/.kube/config  -scale=false -dynamic=false -qsize=3 -wsize=3 -workloadf=workload.csv
 ```

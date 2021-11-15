@@ -8,6 +8,7 @@ const QueryInterval = 5 * time.Second
 const DSN = "http://root@10.77.50.201:31314"
 const PrometheusServerAddr = "http://10.77.50.201:31111"
 const TestInterval = 3600 * time.Second
+const ScaleInterval = 60 * time.Second
 
 const (
 	PodMemoryUsagePercentage = "100 * (sum(container_memory_rss{pod=~\"%s.*\"}) by(pod)/1024/1024/1024) / (sum(container_spec_memory_limit_bytes) by(pod)/1024/1024/1024-8)"
