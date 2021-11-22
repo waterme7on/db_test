@@ -85,12 +85,12 @@ func (w *Worker) Init(dsn string, id int) (err error) {
 		join mongodb.unibench.orders on orders.personid = node1id
 		where feedback like '%5.0%' and orderline[1].productId = '6406'
 		`,
-		`
-		with dfn as (select * from(select node1id from match (:person)-[:knows]->(:person)<-[:knows]-(:person) as graph where node0id='4145' and node2id='24189255845124') where node1id is not null)
-		select o.personid, orderline[1].productId
-		from mongodb.unibench.orders o, dfn
-		where o.personid=dfn.node1id
-		`,
+		// `
+		// with dfn as (select * from(select node1id from match (:person)-[:knows]->(:person)<-[:knows]-(:person) as graph where node0id='4145' and node2id='24189255845124') where node1id is not null)
+		// select o.personid, orderline[1].productId
+		// from mongodb.unibench.orders o, dfn
+		// where o.personid=dfn.node1id
+		// `,
 		// `
 		// WITH salesone as (SELECT feedback.asin, count(totalprice) as count
 		// 		FROM mongodb.unibench.orders
@@ -119,12 +119,12 @@ func (w *Worker) Init(dsn string, id int) (err error) {
 		// 	Totalsales as (SELECT asin,count(orderline) as ol
 		// 					FROM mongodb.unibench.orders o
 		// 					join hbase.default.feedback f on f.personid = o.personid
-		// 					GROUP BY asin 
+		// 					GROUP BY asin
 		// 					ORDER BY ol DESC)
 		// SELECT Totalsales.asin,count(Totalsales.asin) as ts
 		// FROM graph
 		// INNER JOIN Totalsales on Totalsales.asin = graph.node1asin
-		// GROUP BY Totalsales.asin 
+		// GROUP BY Totalsales.asin
 		// ORDER BY ts DESC
 		// `,
 		// `

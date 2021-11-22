@@ -53,15 +53,24 @@ func (s *Scaler) Scale(results map[string]map[string]string) bool {
 		log.Fatalf("Scale Error: %v", err)
 		return false
 	}
-	if *(deploy.Spec.Replicas) >= 5 {
-		return false
-	}
 
 	for k := range results {
 		result := results[k]
 		_, avg := sum_and_avg(result)
-		if strings.Contains(k, "per") && avg >= 70 {
+		if strings.Contains(k, "per") && avg >= 50 {
 			*(deploy.Spec.Replicas) += 1
+                        if *(deploy.Spec.Replicas) > 5 {
+                        	return false
+                        }
+			s.kubeClient.AppsV1().Deployments(s.namespace).Update(context.TODO(), deploy, v1.UpdateOptions{})
+			s.lastScaleTime = time.Now()
+			return true
+		}
+		if strings.Contains(k, "per") && strings.Contains(k, "cpu") && avg <= 5 {
+			*(deploy.Spec.Replicas) -= 1
+                        if *(deploy.Spec.Replicas) < 1 {
+                        	return false
+                        }
 			s.kubeClient.AppsV1().Deployments(s.namespace).Update(context.TODO(), deploy, v1.UpdateOptions{})
 			s.lastScaleTime = time.Now()
 			return true

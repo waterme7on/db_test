@@ -38,18 +38,21 @@ func init() {
 	flag.StringVar(&WorkloadFile, "workloadf", "", "workload file")
 	flag.BoolVar(&ScalerOn, "scale", false, "Trun on or off the scaler")
 	flag.BoolVar(&DynamicWorkload, "dynamic", false, "Turn on or off dynamic workload")
-	flag.IntVar(&MaxQuerySize, "qsize", 20, "Max query size")
-	flag.IntVar(&WorkerSize, "wsize", 20, "Worker size")
+	flag.IntVar(&MaxQuerySize, "qsize", 1, "Max query size")
+	flag.IntVar(&WorkerSize, "wsize", 1, "Worker size")
 }
 
 func main() {
 	klog.InitFlags(nil)
 	flag.Parse()
-	initWorkerSize := MaxQuerySize
-	rand.Seed(time.Now().Unix())
-	if DynamicWorkload && MaxQuerySize != 0 {
-		initWorkerSize = rand.Int() % MaxQuerySize
+	initWorkerSize := 0
+	if !DynamicWorkload && WorkloadFile == "" {
+		initWorkerSize = MaxQuerySize
 	}
+	rand.Seed(time.Now().Unix())
+	// if DynamicWorkload && MaxQuerySize != 0 {
+	// 	initWorkerSize = rand.Int() % MaxQuerySize
+	// }
 	var tm = ThreadsPool(initWorkerSize)
 	var scaler = Scaler{
 		podPrefix:      "gourdstore-slave",
