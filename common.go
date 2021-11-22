@@ -2,12 +2,12 @@ package main
 
 import "time"
 
-const ResizeInterval = 300 * time.Second
+const ResizeInterval = 120 * time.Second
 const MonitorInterval = 5 * time.Second
 const QueryInterval = 5 * time.Second
 const DSN = "http://root@10.77.50.201:31314"
 const PrometheusServerAddr = "http://10.77.50.201:31111"
-const TestInterval = 3600 * time.Second
+const TestInterval = 60 * 80 * time.Second
 const ScaleInterval = 60 * time.Second
 
 const (
